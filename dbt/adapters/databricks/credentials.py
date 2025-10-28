@@ -10,6 +10,7 @@ from dbt_common.exceptions import DbtConfigError, DbtValidationError
 from mashumaro import DataClassDictMixin
 from requests import PreparedRequest
 from requests.auth import AuthBase
+from dbt.adapters.spark.connections import SparkConnectionMethod
 
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.core import Config, CredentialsProvider
@@ -36,6 +37,7 @@ class DatabricksCredentials(Credentials):
     database: Optional[str] = None  # type: ignore[assignment]
     schema: Optional[str] = None  # type: ignore[assignment]
     host: Optional[str] = None
+    method: Optional[SparkConnectionMethod] = None
     http_path: Optional[str] = None
     token: Optional[str] = None
     client_id: Optional[str] = None

@@ -4,6 +4,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from multiprocessing.context import SpawnContext
 from typing import TYPE_CHECKING, Any, Optional, cast
+from dbt.adapters.spark.connections import SparkConnectionMethod
 
 from dbt.adapters.base.query_headers import MacroQueryStringSetter
 from dbt.adapters.contracts.connection import (
@@ -387,6 +388,10 @@ class DatabricksConnectionManager(SparkConnectionManager):
             return connection
 
         creds: DatabricksCredentials = connection.credentials
+
+        if creds.method == SparkConnectionMethod.SESSION:
+            return SparkConnectionManager.open(connection)
+
         timeout = creds.connect_timeout
 
         cls.credentials_manager = creds.authenticate()
