@@ -59,6 +59,7 @@ from dbt.adapters.databricks.events.cursor_events import (
     CursorCreate,
 )
 from dbt.adapters.databricks.events.other_events import QueryError
+from dbt.adapters.databricks.global_state import GlobalState
 from dbt.adapters.databricks.logging import logger
 from dbt.adapters.databricks.python_models.run_tracking import PythonRunTracker
 from dbt.adapters.databricks.utils import redact_credentials
@@ -86,11 +87,8 @@ st_refresh_regex = re.compile(
 DBR_VERSION_REGEX = re.compile(r"([1-9][0-9]*)\.(x|0|[1-9][0-9]*)")
 
 
-# toggle for session managements that minimizes the number of sessions opened/closed
-USE_LONG_SESSIONS = os.getenv("DBT_DATABRICKS_LONG_SESSIONS", "True").upper() == "TRUE"
 # toggle for session managements that assumes the adapter is running in a Databricks session
-USE_SESSION_CONNECTION = os.getenv("DBT_DATABRICKS_SESSION_CONNECTION", "False").upper() == "TRUE"
-
+USE_SESSION_CONNECTION = GlobalState.get_use_long_sessions()
 # Number of idle seconds before a connection is automatically closed. Only applicable if
 # USE_LONG_SESSIONS is true.
 # Updated when idle times of 180s were causing errors
@@ -477,6 +475,8 @@ class DatabricksConnectionManager(SparkConnectionManager):
         auto_begin: bool = True,
         bindings: Optional[Any] = None,
         abridge_sql_log: bool = False,
+        retryable_exceptions: tuple[type[Exception], ...] = tuple(),
+        retry_limit: int = 1,
         *,
         close_cursor: bool = False,
     ) -> tuple[Connection, Any]:
@@ -709,7 +709,7 @@ class DatabricksConnectionManager(SparkConnectionManager):
 class ExtendedSessionConnectionManager(DatabricksConnectionManager):
     def __init__(self, profile: AdapterRequiredConfig, mp_context: SpawnContext) -> None:
         assert (
-            USE_LONG_SESSIONS
+            GlobalState.get_use_long_sessions()
         ), "This connection manager should only be used when USE_LONG_SESSIONS is enabled"
         super().__init__(profile, mp_context)
         self.threads_compute_connections: dict[
@@ -912,7 +912,7 @@ class ExtendedSessionConnectionManager(DatabricksConnectionManager):
         # Once long session management is no longer under the USE_LONG_SESSIONS toggle
         # this should be renamed and replace the _open class method.
         assert (
-            USE_LONG_SESSIONS
+            GlobalState.get_use_long_sessions()
         ), "This path, '_open2', should only be reachable with USE_LONG_SESSIONS"
 
         databricks_connection = cast(DatabricksDBTConnection, connection)
@@ -1126,7 +1126,7 @@ def _get_http_path(query_header_context: Any, creds: DatabricksCredentials) -> O
 
     # If there is no node we return the http_path for the default compute.
     if not query_header_context:
-        if not USE_LONG_SESSIONS:
+        if not GlobalState.get_use_long_sessions():
             logger.debug(f"Thread {thread_id}: using default compute resource.")
         return creds.http_path
 
@@ -1134,7 +1134,7 @@ def _get_http_path(query_header_context: Any, creds: DatabricksCredentials) -> O
     # If none is specified return the http_path for the default compute.
     compute_name = _get_compute_name(query_header_context)
     if not compute_name:
-        if not USE_LONG_SESSIONS:
+        if not GlobalState.get_use_long_sessions():
             logger.debug(f"On thread {thread_id}: {relation_name} using default compute resource.")
         return creds.http_path
 
@@ -1150,7 +1150,7 @@ def _get_http_path(query_header_context: Any, creds: DatabricksCredentials) -> O
             f"does not specify http_path, relation: {relation_name}"
         )
 
-    if not USE_LONG_SESSIONS:
+    if not GlobalState.get_use_long_sessions():
         logger.debug(
             f"On thread {thread_id}: {relation_name} using compute resource '{compute_name}'."
         )
