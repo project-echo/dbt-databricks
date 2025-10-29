@@ -17,6 +17,7 @@ from dbt_common.events.contextvars import get_node_info
 from dbt_common.events.functions import fire_event
 from dbt_common.exceptions import DbtDatabaseError, DbtInternalError, DbtRuntimeError
 from dbt_common.utils import cast_to_str
+from requests import Session
 
 import databricks.sql as dbsql
 from databricks.sql.client import Connection as DatabricksSQLConnection

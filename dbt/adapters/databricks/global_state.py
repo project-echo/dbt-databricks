@@ -8,6 +8,7 @@ class GlobalState:
     """
 
     __use_long_sessions: ClassVar[Optional[bool]] = None
+    __use_session_connection: ClassVar[Optional[bool]] = None
 
     @classmethod
     def get_use_long_sessions(cls) -> bool:
